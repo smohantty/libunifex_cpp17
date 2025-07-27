@@ -115,13 +115,20 @@ The application demonstrates libunifex usage including:
 
 ### Note on Coroutines
 
-This example uses C++17 without coroutines for maximum compatibility. While [libunifex](https://github.com/facebookexperimental/libunifex) supports C++17, coroutines (`unifex::task<T>`, `co_await`, etc.) require C++20 in modern compilers.
+This example uses C++17 with coroutines **explicitly disabled** using the `UNIFEX_NO_COROUTINES=1` preprocessor macro. This provides clean compilation without coroutine-related errors.
 
-**To use coroutines with libunifex:**
-1. Change `cpp_std=c++17` to `cpp_std=c++20` in `meson.build`
-2. Update the project name from `cpp17_app` to `cpp20_app`
-3. Include coroutine headers like `#include <unifex/task.hpp>`
-4. Use `unifex::task<T>` functions with `co_await` and `co_return`
+**libunifex Coroutine Support:**
+- ✅ **C++17 + `UNIFEX_NO_COROUTINES=1`**: Uses sender/receiver algorithms (current setup)
+- ✅ **C++20**: Full coroutine support with `unifex::task<T>`, `co_await`, `co_return`
+
+**To enable coroutines with libunifex:**
+1. Change `cpp_std=c++17` to `cpp_std=c++20` in both `meson.build` files
+2. Remove `-DUNIEX_NO_COROUTINES=1` from the compiler args
+3. Update the project name from `cpp17_app` to `cpp20_app`
+4. Include coroutine headers like `#include <unifex/task.hpp>`
+5. Use `unifex::task<T>` functions with `co_await` and `co_return`
+
+**Why disable coroutines?** Modern compilers (Clang 17+, GCC 11+) require C++20 for coroutine support, even though libunifex documentation mentions C++17 compatibility. The `UNIFEX_NO_COROUTINES=1` flag ensures clean C++17 builds.
 
 ## License
 
