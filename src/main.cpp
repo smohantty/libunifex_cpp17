@@ -9,6 +9,9 @@
 #include <unifex/just.hpp>
 #include <unifex/then.hpp>
 #include <unifex/let_value.hpp>
+// Note: With UNIFEX_NO_COROUTINES=1, we can safely include task.hpp
+// but coroutine features will be disabled at compile time
+#include <unifex/task.hpp>
 
 namespace fs = std::filesystem;
 
