@@ -52,9 +52,19 @@ int main() {
     if (typed_results.has_value()) {
         const auto& result_tuple = *typed_results;
 
-        const int& user_id = std::get<0>(result_tuple);
-        const std::string& username = std::get<1>(result_tuple);
-        const double& balance = std::get<2>(result_tuple);
+        // Handle the complex nested variant/tuple structure that when_all creates
+        // Result type: std::tuple<std::variant<std::tuple<int>>,
+        //                        std::variant<std::tuple<std::string>>,
+        //                        std::variant<std::tuple<double>>>
+
+        // Extract user_id: std::variant<std::tuple<int>> -> std::tuple<int> -> int
+        const int user_id = std::get<0>(std::get<0>(std::get<0>(result_tuple)));
+
+        // Extract username: std::variant<std::tuple<std::string>> -> std::tuple<std::string> -> std::string
+        const std::string username = std::get<0>(std::get<0>(std::get<1>(result_tuple)));
+
+        // Extract balance: std::variant<std::tuple<double>> -> std::tuple<double> -> double
+        const double balance = std::get<0>(std::get<0>(std::get<2>(result_tuple)));
 
         std::cout << "\n  ✅ All tasks completed in parallel (" << fetch_duration.count() << "ms)" << std::endl;
         std::cout << "    - User ID: " << user_id << " (type: int)" << std::endl;
@@ -63,11 +73,7 @@ int main() {
 
         // Use all three values in a follow-up task
         auto final_report = unifex::sync_wait(
-            unifex::schedule(scheduler) | unifex::then([
-                user_id,
-                username,
-                balance
-            ] {
+            unifex::schedule(scheduler) | unifex::then([user_id, username, balance] {
                 std::cout << "\n  [Processor] Processing on thread: " << std::this_thread::get_id() << std::endl;
 
                 bool is_premium = balance > 1000.0;
@@ -95,6 +101,22 @@ int main() {
     auto total_end = std::chrono::steady_clock::now();
     auto total_duration = std::chrono::duration_cast<std::chrono::milliseconds>(total_end - start_time);
     std::cout << "\n  ⏱️  Total Time: " << total_duration.count() << "ms" << std::endl;
+
+    std::cout << "\n📝 TYPE COMPLEXITY DEMONSTRATION:" << std::endl;
+    std::cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" << std::endl;
+    std::cout << "Mixed return types with when_all create complex nested types:" << std::endl;
+    std::cout << "  Result type: std::tuple<" << std::endl;
+    std::cout << "                 std::variant<std::tuple<int>>," << std::endl;
+    std::cout << "                 std::variant<std::tuple<std::string>>," << std::endl;
+    std::cout << "                 std::variant<std::tuple<double>>" << std::endl;
+    std::cout << "               >" << std::endl;
+    std::cout << "  Extraction requires: std::get<0>(std::get<0>(std::get<N>(result)))" << std::endl;
+    std::cout << "  THREE levels of std::get are needed!" << std::endl;
+    std::cout << "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" << std::endl;
+    std::cout << "💡 For simpler code, consider:" << std::endl;
+    std::cout << "   • Using uniform return types (like task_dag_demo)" << std::endl;
+    std::cout << "   • Converting all tasks to common type (e.g., std::string)" << std::endl;
+    std::cout << "   • Using std::variant explicitly for type safety" << std::endl;
 
     return 0;
 }
