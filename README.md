@@ -1,17 +1,17 @@
-# C++17 Application with libunifex
+# C++20 Application with libunifex
 
-A C++17 application demonstrating the use of libunifex for asynchronous programming, built with the Meson build system.
+A C++20 application demonstrating the use of libunifex for asynchronous programming, built with the Meson build system.
 
 ## Features
 
-- **C++17 Standard**: Uses modern C++17 features including filesystem library
+- **C++20 Standard**: Uses modern C++20 features including coroutines and filesystem library
 - **Meson Build System**: Fast and user-friendly build system
 - **libunifex Integration**: Facebook's experimental C++ library for async programming
 - **Git Submodule**: libunifex is included as a git submodule for easy dependency management
 
 ## Prerequisites
 
-- C++17 compatible compiler (GCC 8+, Clang 7+, MSVC 2017+)
+- C++20 compatible compiler (GCC 10+, Clang 10+, MSVC 2019+)
 - Meson build system
 - Ninja (recommended backend for Meson)
 - Git

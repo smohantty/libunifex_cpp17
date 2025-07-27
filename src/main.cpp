@@ -18,7 +18,7 @@ unifex::task<int> async_calculation() {
 }
 
 int main() {
-    std::cout << "C++17 Application with libunifex" << std::endl;
+    std::cout << "C++20 Application with libunifex" << std::endl;
     std::cout << "================================" << std::endl;
 
     // Demonstrate C++17 filesystem
