@@ -8,6 +8,7 @@
 #include <unifex/just.hpp>
 #include <unifex/then.hpp>
 #include <unifex/when_all.hpp>
+#include <unifex/scheduler_concepts.hpp>
 
 // Demonstration: Getting data from tasks with different return types
 // and using them in a subsequent task
@@ -140,30 +141,70 @@ int main() {
         std::cout << "  ✓ when_all with uniform types completed in " << uniform_duration.count() << "ms" << std::endl;
         std::cout << "  ✓ Parallel execution but requires type conversion" << std::endl;
 
-        // Process the string results (would need conversion back to original types)
+        // === ACTUAL EXTRACTION FROM unified_results ===
+        std::cout << "  ✓ Now extracting REAL data from unified_results..." << std::endl;
+        std::cout << "  ⚠️  unified_results type: std::optional<std::tuple<std::variant<std::tuple<std::string>>, ...>>" << std::endl;
+
+        // Process the string results - ACTUAL EXTRACTION!
         auto string_processor = unifex::sync_wait(
             unifex::schedule(scheduler) | unifex::then([unified_results]() {
-                std::cout << "  [String Processor] Processing unified results on thread: " << std::this_thread::get_id() << std::endl;
+                std::cout << "  [String Processor] Processing REAL unified_results on thread: " << std::this_thread::get_id() << std::endl;
 
-                // Note: Actual extraction from when_all results is still complex
-                // This is simplified for demonstration
-                std::string user_id_str = "12345";      // Would extract from complex tuple
-                std::string username_str = "john_doe";   // Would extract from complex tuple
-                std::string balance_str = "1234.56";     // Would extract from complex tuple
+                // THIS IS THE REAL EXTRACTION - showing the actual complexity!
+                std::cout << "  ✓ Extracting from complex nested types..." << std::endl;
 
-                // Convert back to original types if needed
-                int user_id = std::stoi(user_id_str);
-                std::string username = username_str;
-                double balance = std::stod(balance_str);
+                try {
+                    // unified_results is: std::optional<std::tuple<std::variant<std::tuple<std::string>>, ...>>
+                    auto& tuple_result = *unified_results;  // Get the tuple from optional
 
-                std::cout << "  ✓ Converted back: ID=" << user_id << ", Name=\"" << username << "\", Balance=$" << balance << std::endl;
+                    // Extract first result (user_id as string)
+                    auto& first_variant = std::get<0>(tuple_result);   // Get first variant from tuple
+                    auto& first_tuple = std::get<0>(first_variant);    // Get tuple from variant
+                    std::string user_id_str = std::get<0>(first_tuple); // Get string from tuple
 
-                return "Processed unified string results successfully";
+                    // Extract second result (username)
+                    auto& second_variant = std::get<1>(tuple_result);  // Get second variant from tuple
+                    auto& second_tuple = std::get<0>(second_variant);  // Get tuple from variant
+                    std::string username_str = std::get<0>(second_tuple); // Get string from tuple
+
+                    // Extract third result (balance as string)
+                    auto& third_variant = std::get<2>(tuple_result);   // Get third variant from tuple
+                    auto& third_tuple = std::get<0>(third_variant);    // Get tuple from variant
+                    std::string balance_str = std::get<0>(third_tuple); // Get string from tuple
+
+                    std::cout << "  ✅ SUCCESSFULLY EXTRACTED from nested types:" << std::endl;
+                    std::cout << "    - std::get<0>(std::get<0>(std::get<0>(tuple))): \"" << user_id_str << "\"" << std::endl;
+                    std::cout << "    - std::get<0>(std::get<0>(std::get<1>(tuple))): \"" << username_str << "\"" << std::endl;
+                    std::cout << "    - std::get<0>(std::get<0>(std::get<2>(tuple))): \"" << balance_str << "\"" << std::endl;
+
+                    // Convert back to original types if needed for processing
+                    int user_id = std::stoi(user_id_str);
+                    std::string username = username_str;
+                    double balance = std::stod(balance_str);
+
+                    std::cout << "  ✓ Converted to original types: ID=" << user_id << ", Name=\"" << username << "\", Balance=$" << balance << std::endl;
+
+                    // Now we can use them together!
+                    bool is_premium = balance > 1000.0;
+                    std::string status = is_premium ? "Premium" : "Standard";
+                    std::string display_name = username + "_" + std::to_string(user_id);
+
+                    std::string final_report = "REAL EXTRACTION: " + display_name +
+                                             " | Status: " + status +
+                                             " | Balance: $" + std::to_string(balance);
+
+                    return final_report;
+
+                } catch (const std::exception& e) {
+                    std::cout << "  ❌ ERROR during extraction: " << e.what() << std::endl;
+                    return std::string("Extraction failed: ") + e.what();
+                }
             })
         );
 
         if (string_processor.has_value()) {
             std::cout << "  ✅ " << *string_processor << std::endl;
+            std::cout << "  ✅ This demonstrates the REAL complexity of when_all extraction!" << std::endl;
         }
     }
 
