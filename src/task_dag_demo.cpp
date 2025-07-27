@@ -35,6 +35,13 @@
  * - Efficient resource utilization
  */
 
+template<typename... Ts>
+auto unwrap_when_all(const std::tuple<Ts...>& when_all_result) {
+    return std::apply([](const auto&... variants) {
+        return std::make_tuple(std::get<0>(std::get<0>(variants))...);
+    }, when_all_result);
+}
+
 int main() {
     std::cout << "=== UNIFEX TASK DEPENDENCY GRAPH (DAG) DEMO ===" << std::endl;
     std::cout << "Demonstrating complex task dependencies with when_all\n" << std::endl;
@@ -80,31 +87,29 @@ int main() {
     }
 
     // Extract results - with uniform double types, still need to handle variant/tuple nesting
-    const auto& level1_tuple = *level1_results;
-
-    // Extract from std::variant<std::tuple<double>> structure
-    const double result1 = std::get<0>(std::get<0>(std::get<0>(level1_tuple)));
-    const double result2 = std::get<0>(std::get<0>(std::get<1>(level1_tuple)));
-    const double result3 = std::get<0>(std::get<0>(std::get<2>(level1_tuple)));
+    auto [result1, result2, result3] = unwrap_when_all(*level1_results);
 
     std::cout << "✅ Level 1 completed:" << std::endl;
     std::cout << "    Task1: DataSourceA = " << std::fixed << std::setprecision(1) << result1 << std::endl;
     std::cout << "    Task2: DataSourceB = " << result2 << std::endl;
     std::cout << "    Task3: DataSourceC = " << result3 << std::endl;
 
+    // Store values in regular variables for C++17 lambda capture compatibility
+    double r1 = result1, r2 = result2, r3 = result3;
+
     // ===== LEVEL 2: Dependent Tasks =====
     std::cout << "\n🔄 Starting Level 2: Dependent tasks (Task4, Task5)" << std::endl;
 
-    auto task4 = unifex::schedule(scheduler) | unifex::then([result1, result2] {
+    auto task4 = unifex::schedule(scheduler) | unifex::then([r1, r2] {
         std::cout << "  [Task4] Combining DataSourceA + DataSourceB on thread: " << std::this_thread::get_id() << std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds(60));
-        return result1 + result2;  // Combined value
+        return r1 + r2;  // Combined value
     });
 
-    auto task5 = unifex::schedule(scheduler) | unifex::then([result1, result2, result3] {
+    auto task5 = unifex::schedule(scheduler) | unifex::then([r1, r2, r3] {
         std::cout << "  [Task5] Aggregating all data sources on thread: " << std::this_thread::get_id() << std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds(90));
-        return (result1 + result2 + result3) / 3.0;  // Average value
+        return (r1 + r2 + r3) / 3.0;  // Average value
     });
 
     // Wait for Level 2 tasks to complete
@@ -120,22 +125,23 @@ int main() {
         return 1;
     }
 
-    const auto& level2_tuple = *level2_results;
-    const double result4 = std::get<0>(std::get<0>(std::get<0>(level2_tuple)));
-    const double result5 = std::get<0>(std::get<0>(std::get<1>(level2_tuple)));
+    auto [result4, result5] = unwrap_when_all(*level2_results);
 
     std::cout << "✅ Level 2 completed:" << std::endl;
     std::cout << "    Task4: CombinedAB = " << std::fixed << std::setprecision(2) << result4 << std::endl;
     std::cout << "    Task5: AggregatedABC = " << result5 << std::endl;
 
+    // Store values in regular variables for C++17 lambda capture compatibility
+    double r4 = result4, r5 = result5;
+
     // ===== LEVEL 3: Final Task =====
     std::cout << "\n🎯 Starting Level 3: Final task (Task6)" << std::endl;
 
     auto task6_result = unifex::sync_wait(
-        unifex::schedule(scheduler) | unifex::then([result4, result5] {
+        unifex::schedule(scheduler) | unifex::then([r4, r5] {
             std::cout << "  [Task6] Final processing on thread: " << std::this_thread::get_id() << std::endl;
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            return (result4 * 0.6) + (result5 * 0.4);  // Weighted final score
+            return (r4 * 0.6) + (r5 * 0.4);  // Weighted final score
         })
     );
 
