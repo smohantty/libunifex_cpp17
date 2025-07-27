@@ -4,7 +4,7 @@ sources = [
 ]
 
 # Create executable
-executable('cpp20_app',
+executable('cpp17_app',
   sources,
   dependencies : [libunifex_dep],
   include_directories : [inc_dir],

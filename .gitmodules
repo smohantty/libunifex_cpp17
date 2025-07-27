@@ -2,4 +2,3 @@
 	path = subprojects/libunifex
 	url = https://github.com/facebookexperimental/libunifex.git
 	branch = main
-	ignore = dirty

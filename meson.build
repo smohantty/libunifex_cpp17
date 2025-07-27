@@ -15,9 +15,20 @@ if not cpp.has_header('filesystem')
   error('C++17 filesystem header is required')
 endif
 
-# Add libunifex as a subproject
-libunifex_subproject = subproject('libunifex')
-libunifex_dep = libunifex_subproject.get_variable('unifex_dep')
+# Import CMake module for subproject support
+cmake = import('cmake')
+
+# Configure CMake options for libunifex subproject
+opt_var = cmake.subproject_options()
+opt_var.add_cmake_defines({
+  'BUILD_TESTING': false,
+  'UNIFEX_BUILD_EXAMPLES': false,
+  'UNIFEX_USE_SYSTEM_GTEST': false
+})
+
+# Add libunifex as a CMake subproject
+libunifex_subproject = cmake.subproject('libunifex', options: opt_var)
+libunifex_dep = libunifex_subproject.dependency('unifex')
 
 # Include directories
 inc_dir = include_directories('include')
