@@ -190,6 +190,203 @@ int main() {
     std::cout << "3. MERGE: Results from parallel tasks are combined" << std::endl;
     std::cout << std::string(50, '=') << std::endl;
 
+    // === FORK → JOIN → FORK → END PATTERN DEMONSTRATION ===
+    std::cout << "\n" << std::string(60, '=') << std::endl;
+    std::cout << "FORK → JOIN → FORK → END PATTERN DEMONSTRATION" << std::endl;
+    std::cout << std::string(60, '=') << std::endl;
+
+    {
+        unifex::static_thread_pool pool{4}; // 4 worker threads for complex workflow
+        auto scheduler = pool.get_scheduler();
+
+        std::cout << "\nStep 1: INITIAL FORK - Parallel Data Sources" << std::endl;
+        std::cout << "Main thread: " << std::this_thread::get_id() << std::endl;
+
+        // INITIAL FORK: Multiple parallel data sources
+        auto source1 = unifex::schedule(scheduler)
+            | unifex::then([]() {
+                std::cout << "  [Source 1] Fetching user data on thread: " << std::this_thread::get_id() << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(60));
+                std::vector<int> user_data = {1, 2, 3, 4, 5};
+                return user_data;
+            });
+
+        auto source2 = unifex::schedule(scheduler)
+            | unifex::then([]() {
+                std::cout << "  [Source 2] Fetching config data on thread: " << std::this_thread::get_id() << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(40));
+                std::vector<int> config_data = {10, 20, 30};
+                return config_data;
+            });
+
+        auto source3 = unifex::schedule(scheduler)
+            | unifex::then([]() {
+                std::cout << "  [Source 3] Fetching metrics data on thread: " << std::this_thread::get_id() << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(80));
+                std::vector<int> metrics_data = {100, 200};
+                return metrics_data;
+            });
+
+        // Execute all source tasks in parallel
+        std::cout << "  Launching 3 parallel data sources..." << std::endl;
+        auto start_time = std::chrono::steady_clock::now();
+
+        auto result1 = unifex::sync_wait(std::move(source1));
+        auto result2 = unifex::sync_wait(std::move(source2));
+        auto result3 = unifex::sync_wait(std::move(source3));
+
+        auto fork1_time = std::chrono::steady_clock::now();
+        auto fork1_duration = std::chrono::duration_cast<std::chrono::milliseconds>(fork1_time - start_time);
+
+        if (result1.has_value() && result2.has_value() && result3.has_value()) {
+            std::cout << "  ✓ All sources completed in " << fork1_duration.count() << "ms" << std::endl;
+
+            // JOIN: Merge all data sources
+            std::cout << "\nStep 2: JOIN - Merging Data Sources" << std::endl;
+            auto join_processor = unifex::schedule(scheduler)
+                | unifex::then([user_data = *result1, config_data = *result2, metrics_data = *result3]() {
+                    std::cout << "  [Joiner] Merging data on thread: " << std::this_thread::get_id() << std::endl;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+
+                    // Combine all data into a unified dataset
+                    std::vector<int> merged_data;
+                    merged_data.insert(merged_data.end(), user_data.begin(), user_data.end());
+                    merged_data.insert(merged_data.end(), config_data.begin(), config_data.end());
+                    merged_data.insert(merged_data.end(), metrics_data.begin(), metrics_data.end());
+
+                    std::cout << "  ✓ Merged " << merged_data.size() << " total elements" << std::endl;
+                    return merged_data;
+                });
+
+            auto join_result = unifex::sync_wait(std::move(join_processor));
+            auto join_time = std::chrono::steady_clock::now();
+            auto join_duration = std::chrono::duration_cast<std::chrono::milliseconds>(join_time - fork1_time);
+
+            if (join_result.has_value()) {
+                auto merged_data = *join_result;
+                std::cout << "  ✓ Join completed in " << join_duration.count() << "ms" << std::endl;
+
+                // MIDDLE PRODUCER: Process merged data and decide next actions
+                std::cout << "\nStep 3: MIDDLE PRODUCER - Data Analysis & Decision" << std::endl;
+                auto analyzer = unifex::schedule(scheduler)
+                    | unifex::then([merged_data]() {
+                        std::cout << "  [Analyzer] Processing merged data on thread: " << std::this_thread::get_id() << std::endl;
+                        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+                        // Calculate statistics
+                        int sum = 0;
+                        int max_val = 0;
+                        for (int val : merged_data) {
+                            sum += val;
+                            max_val = std::max(max_val, val);
+                        }
+
+                        // Decision logic based on analysis
+                        struct AnalysisResult {
+                            std::vector<int> data;
+                            int sum;
+                            int max_val;
+                            bool needs_alert;
+                            bool needs_report;
+                        };
+
+                        AnalysisResult result;
+                        result.data = merged_data;
+                        result.sum = sum;
+                        result.max_val = max_val;
+                        result.needs_alert = (max_val > 150);  // Alert if max > 150
+                        result.needs_report = (sum > 300);     // Report if sum > 300
+
+                        std::cout << "  ✓ Analysis: sum=" << sum << ", max=" << max_val
+                                 << ", alert=" << (result.needs_alert ? "YES" : "NO")
+                                 << ", report=" << (result.needs_report ? "YES" : "NO") << std::endl;
+
+                        return result;
+                    });
+
+                auto analysis_result = unifex::sync_wait(std::move(analyzer));
+                auto analysis_time = std::chrono::steady_clock::now();
+                auto analysis_duration = std::chrono::duration_cast<std::chrono::milliseconds>(analysis_time - join_time);
+
+                if (analysis_result.has_value()) {
+                    auto analysis = *analysis_result;
+                    std::cout << "  ✓ Analysis completed in " << analysis_duration.count() << "ms" << std::endl;
+
+                    // SECONDARY FORK: Based on analysis, trigger different parallel actions
+                    std::cout << "\nStep 4: SECONDARY FORK - Parallel Action Execution" << std::endl;
+
+                    auto storage_task = unifex::schedule(scheduler)
+                        | unifex::then([analysis]() {
+                            std::cout << "  [Storage] Saving data on thread: " << std::this_thread::get_id() << std::endl;
+                            std::this_thread::sleep_for(std::chrono::milliseconds(70));
+                            return "Data saved to storage with " + std::to_string(analysis.data.size()) + " records";
+                        });
+
+                    // Conditional tasks based on analysis
+                    auto alert_task = unifex::schedule(scheduler)
+                        | unifex::then([analysis]() -> std::string {
+                            std::cout << "  [Alert] Processing alerts on thread: " << std::this_thread::get_id() << std::endl;
+                            std::this_thread::sleep_for(std::chrono::milliseconds(45));
+                            if (analysis.needs_alert) {
+                                return "⚠️  ALERT: High value detected (max=" + std::to_string(analysis.max_val) + ")";
+                            } else {
+                                return std::string("✓ No alerts needed");
+                            }
+                        });
+
+                    auto report_task = unifex::schedule(scheduler)
+                        | unifex::then([analysis]() -> std::string {
+                            std::cout << "  [Report] Generating report on thread: " << std::this_thread::get_id() << std::endl;
+                            std::this_thread::sleep_for(std::chrono::milliseconds(90));
+                            if (analysis.needs_report) {
+                                return "📊 Report generated: Total sum=" + std::to_string(analysis.sum) + " (threshold exceeded)";
+                            } else {
+                                return "📄 Basic report: Total sum=" + std::to_string(analysis.sum) + " (normal)";
+                            }
+                        });
+
+                    // Execute all final tasks in parallel
+                    std::cout << "  Launching 3 parallel action tasks..." << std::endl;
+                    auto storage_result = unifex::sync_wait(std::move(storage_task));
+                    auto alert_result = unifex::sync_wait(std::move(alert_task));
+                    auto report_result = unifex::sync_wait(std::move(report_task));
+
+                    auto end_time = std::chrono::steady_clock::now();
+                    auto final_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - analysis_time);
+                    auto total_duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+
+                    // END: Display final results
+                    std::cout << "\nStep 5: END - Final Results (completed in " << final_duration.count() << "ms)" << std::endl;
+                    if (storage_result.has_value()) {
+                        std::cout << "  " << *storage_result << std::endl;
+                    }
+                    if (alert_result.has_value()) {
+                        std::cout << "  " << *alert_result << std::endl;
+                    }
+                    if (report_result.has_value()) {
+                        std::cout << "  " << *report_result << std::endl;
+                    }
+
+                    std::cout << "\n🎯 WORKFLOW SUMMARY:" << std::endl;
+                    std::cout << "  Total execution time: " << total_duration.count() << "ms" << std::endl;
+                    std::cout << "  ├─ Fork 1 (parallel sources): " << fork1_duration.count() << "ms" << std::endl;
+                    std::cout << "  ├─ Join (data merge): " << join_duration.count() << "ms" << std::endl;
+                    std::cout << "  ├─ Analysis (middle producer): " << analysis_duration.count() << "ms" << std::endl;
+                    std::cout << "  └─ Fork 2 (parallel actions): " << final_duration.count() << "ms" << std::endl;
+                }
+            }
+        }
+    }
+
+    std::cout << "\n" << std::string(60, '=') << std::endl;
+    std::cout << "COMPLEX WORKFLOW PATTERN SUMMARY:" << std::endl;
+    std::cout << "1. FORK:   Parallel data sources (user, config, metrics)" << std::endl;
+    std::cout << "2. JOIN:   Merge all data into unified dataset" << std::endl;
+    std::cout << "3. MIDDLE: Analyze merged data & make decisions" << std::endl;
+    std::cout << "4. FORK:   Parallel actions based on analysis" << std::endl;
+    std::cout << "5. END:    Collect and display final results" << std::endl;
+    std::cout << std::string(60, '=') << std::endl;
+
     std::cout << "\nApplication completed successfully!" << std::endl;
     return 0;
 }
