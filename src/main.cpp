@@ -542,6 +542,224 @@ int main() {
     std::cout << "✓ Best used when you need true parallel execution of multiple tasks" << std::endl;
     std::cout << std::string(50, '=') << std::endl;
 
+    std::cout << std::string(50, '=') << std::endl;
+
+    // === WHEN_ALL WITH DIFFERENT RETURN TYPES ===
+    std::cout << "\n" << std::string(60, '=') << std::endl;
+    std::cout << "WHEN_ALL WITH DIFFERENT RETURN TYPES" << std::endl;
+    std::cout << std::string(60, '=') << std::endl;
+
+    {
+        unifex::static_thread_pool pool{3}; // 3 worker threads
+        auto scheduler = pool.get_scheduler();
+
+        std::cout << "\nDemonstrating when_all with mixed return types" << std::endl;
+        std::cout << "Main thread: " << std::this_thread::get_id() << std::endl;
+
+        // === MIXED RETURN TYPES EXAMPLE ===
+        std::cout << "\n1. MIXED RETURN TYPES CHALLENGE:" << std::endl;
+
+        // Task returning int
+        auto int_task = unifex::schedule(scheduler)
+            | unifex::then([]() {
+                std::cout << "  [Int Task] Computing on thread: " << std::this_thread::get_id() << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(70));
+                return 42;
+            });
+
+        // Task returning string
+        auto string_task = unifex::schedule(scheduler)
+            | unifex::then([]() {
+                std::cout << "  [String Task] Processing on thread: " << std::this_thread::get_id() << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                return std::string("Hello World");
+            });
+
+        // Task returning double
+        auto double_task = unifex::schedule(scheduler)
+            | unifex::then([]() {
+                std::cout << "  [Double Task] Calculating on thread: " << std::this_thread::get_id() << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(60));
+                return 3.14159;
+            });
+
+        // Task returning custom struct
+        struct TaskResult {
+            int code;
+            std::string message;
+            bool success;
+        };
+
+        auto struct_task = unifex::schedule(scheduler)
+            | unifex::then([]() {
+                std::cout << "  [Struct Task] Building result on thread: " << std::this_thread::get_id() << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(40));
+                return TaskResult{200, "OK", true};
+            });
+
+        std::cout << "  Executing when_all with 4 different return types..." << std::endl;
+        auto mixed_start = std::chrono::steady_clock::now();
+
+        // This creates very complex nested types!
+        auto mixed_results = unifex::sync_wait(
+            unifex::when_all(
+                std::move(int_task),
+                std::move(string_task),
+                std::move(double_task),
+                std::move(struct_task)
+            )
+        );
+
+        auto mixed_end = std::chrono::steady_clock::now();
+        auto mixed_duration = std::chrono::duration_cast<std::chrono::milliseconds>(mixed_end - mixed_start);
+
+        if (mixed_results.has_value()) {
+            std::cout << "  ✓ Mixed types when_all completed in " << mixed_duration.count() << "ms" << std::endl;
+            std::cout << "  ⚠️  Result type is extremely complex: std::tuple<std::variant<std::tuple<...>>, ...>" << std::endl;
+            std::cout << "  ⚠️  Direct unwrapping is very challenging!" << std::endl;
+        }
+
+        // === PRACTICAL ALTERNATIVE APPROACHES ===
+        std::cout << "\n2. PRACTICAL ALTERNATIVE APPROACHES:" << std::endl;
+
+        // Approach 1: Convert all to common type (string)
+        std::cout << "\nApproach 1: Convert all tasks to common return type" << std::endl;
+
+        auto unified_int_task = unifex::schedule(scheduler)
+            | unifex::then([]() {
+                std::cout << "  [Unified Int] on thread: " << std::this_thread::get_id() << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(30));
+                return std::string("Result: 42");
+            });
+
+        auto unified_string_task = unifex::schedule(scheduler)
+            | unifex::then([]() {
+                std::cout << "  [Unified String] on thread: " << std::this_thread::get_id() << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                return std::string("Result: Hello World");
+            });
+
+        auto unified_double_task = unifex::schedule(scheduler)
+            | unifex::then([]() {
+                std::cout << "  [Unified Double] on thread: " << std::this_thread::get_id() << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(35));
+                return std::string("Result: 3.14159");
+            });
+
+        auto unified_start = std::chrono::steady_clock::now();
+        auto unified_results = unifex::sync_wait(
+            unifex::when_all(
+                std::move(unified_int_task),
+                std::move(unified_string_task),
+                std::move(unified_double_task)
+            )
+        );
+        auto unified_end = std::chrono::steady_clock::now();
+        auto unified_duration = std::chrono::duration_cast<std::chrono::milliseconds>(unified_end - unified_start);
+
+        if (unified_results.has_value()) {
+            std::cout << "  ✓ Unified approach completed in " << unified_duration.count() << "ms" << std::endl;
+            std::cout << "  ✓ Much simpler types, but loses type safety" << std::endl;
+        }
+
+        // Approach 2: Use std::variant as common type
+        std::cout << "\nApproach 2: Use std::variant<int, string, double> as common type" << std::endl;
+
+        using CommonType = std::variant<int, std::string, double>;
+
+        auto variant_int_task = unifex::schedule(scheduler)
+            | unifex::then([]() -> CommonType {
+                std::cout << "  [Variant Int] on thread: " << std::this_thread::get_id() << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(30));
+                return 42;
+            });
+
+        auto variant_string_task = unifex::schedule(scheduler)
+            | unifex::then([]() -> CommonType {
+                std::cout << "  [Variant String] on thread: " << std::this_thread::get_id() << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                return std::string("Hello Variant");
+            });
+
+        auto variant_double_task = unifex::schedule(scheduler)
+            | unifex::then([]() -> CommonType {
+                std::cout << "  [Variant Double] on thread: " << std::this_thread::get_id() << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(35));
+                return 2.71828;
+            });
+
+        auto variant_start = std::chrono::steady_clock::now();
+        auto variant_results = unifex::sync_wait(
+            unifex::when_all(
+                std::move(variant_int_task),
+                std::move(variant_string_task),
+                std::move(variant_double_task)
+            )
+        );
+        auto variant_end = std::chrono::steady_clock::now();
+        auto variant_duration = std::chrono::duration_cast<std::chrono::milliseconds>(variant_end - variant_start);
+
+        if (variant_results.has_value()) {
+            std::cout << "  ✓ Variant approach completed in " << variant_duration.count() << "ms" << std::endl;
+            std::cout << "  ✓ Type safe with manageable complexity" << std::endl;
+        }
+
+        // Approach 3: Sequential execution for mixed types
+        std::cout << "\nApproach 3: Sequential execution (simplest for mixed types)" << std::endl;
+
+        auto seq_start = std::chrono::steady_clock::now();
+
+        auto seq_int = unifex::sync_wait(
+            unifex::schedule(scheduler) | unifex::then([]() {
+                std::cout << "  [Sequential] Int task on thread: " << std::this_thread::get_id() << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(30));
+                return 99;
+            })
+        );
+
+        auto seq_string = unifex::sync_wait(
+            unifex::schedule(scheduler) | unifex::then([]() {
+                std::cout << "  [Sequential] String task on thread: " << std::this_thread::get_id() << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                return std::string("Sequential Result");
+            })
+        );
+
+        auto seq_double = unifex::sync_wait(
+            unifex::schedule(scheduler) | unifex::then([]() {
+                std::cout << "  [Sequential] Double task on thread: " << std::this_thread::get_id() << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(35));
+                return 1.41421;
+            })
+        );
+
+        auto seq_end = std::chrono::steady_clock::now();
+        auto seq_duration = std::chrono::duration_cast<std::chrono::milliseconds>(seq_end - seq_start);
+
+        if (seq_int.has_value() && seq_string.has_value() && seq_double.has_value()) {
+            std::cout << "  ✓ Sequential results: " << *seq_int << ", \"" << *seq_string << "\", " << *seq_double << std::endl;
+            std::cout << "  ✓ Sequential completed in " << seq_duration.count() << "ms" << std::endl;
+            std::cout << "  ✓ Simple types, but loses parallelism benefits" << std::endl;
+        }
+
+        // === PERFORMANCE COMPARISON ===
+        std::cout << "\n3. PERFORMANCE & COMPLEXITY COMPARISON:" << std::endl;
+        std::cout << "  Mixed types when_all:  " << mixed_duration.count() << "ms (complex types, parallel)" << std::endl;
+        std::cout << "  Unified string approach: " << unified_duration.count() << "ms (simple types, parallel)" << std::endl;
+        std::cout << "  Variant approach:        " << variant_duration.count() << "ms (type-safe, parallel)" << std::endl;
+        std::cout << "  Sequential approach:     " << seq_duration.count() << "ms (simple types, sequential)" << std::endl;
+    }
+
+    std::cout << "\n" << std::string(60, '=') << std::endl;
+    std::cout << "MIXED RETURN TYPES SUMMARY:" << std::endl;
+    std::cout << "❌ Direct when_all with mixed types creates extremely complex nested types" << std::endl;
+    std::cout << "❌ Type unwrapping becomes very challenging and error-prone" << std::endl;
+    std::cout << "✅ Convert all tasks to common type (string) - simple but loses type safety" << std::endl;
+    std::cout << "✅ Use std::variant<...> as common type - type-safe with manageable complexity" << std::endl;
+    std::cout << "✅ Sequential execution - simplest approach, loses parallelism benefits" << std::endl;
+    std::cout << "🎯 RECOMMENDATION: Use std::variant or convert to common types for when_all" << std::endl;
+    std::cout << std::string(60, '=') << std::endl;
+
     std::cout << "\nApplication completed successfully!" << std::endl;
     return 0;
 }
