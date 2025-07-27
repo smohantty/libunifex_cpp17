@@ -107,10 +107,21 @@ meson compile -C builddir
 
 ## libunifex Usage Examples
 
-The application demonstrates basic libunifex usage including:
-- Coroutines with `unifex::task<T>`
-- Synchronous waiting with `unifex::sync_wait()`
-- Scheduler concepts
+The application demonstrates libunifex usage including:
+- **Sender/Receiver algorithms**: `unifex::just()`, `unifex::then()`, `unifex::let_value()`
+- **Synchronous waiting**: `unifex::sync_wait()`
+- **Thread pool execution**: `unifex::static_thread_pool` with custom schedulers
+- **Scheduler concepts**: `unifex::inline_scheduler` and pool schedulers
+
+### Note on Coroutines
+
+This example uses C++17 without coroutines for maximum compatibility. While [libunifex](https://github.com/facebookexperimental/libunifex) supports C++17, coroutines (`unifex::task<T>`, `co_await`, etc.) require C++20 in modern compilers.
+
+**To use coroutines with libunifex:**
+1. Change `cpp_std=c++17` to `cpp_std=c++20` in `meson.build`
+2. Update the project name from `cpp17_app` to `cpp20_app`
+3. Include coroutine headers like `#include <unifex/task.hpp>`
+4. Use `unifex::task<T>` functions with `co_await` and `co_return`
 
 ## License
 
